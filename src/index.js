@@ -14,9 +14,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
+
+// Дозвіл CORS для фронтенду на Render
 app.use(cors({
   origin: 'https://oblic.onrender.com'
 }));
+
 app.use(express.json());
 
 const upload = multer({ dest: 'uploads/' });
@@ -108,4 +111,4 @@ app.get('/assets/:id', async (req, res) => {
 
 app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
