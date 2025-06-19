@@ -13,6 +13,8 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+console.log("🔍 Починаємо запуск...");
+
 const app = express();
 
 // Дозвіл CORS для фронтенду на Render
@@ -25,14 +27,16 @@ app.use(express.json());
 const upload = multer({ dest: 'uploads/' });
 const PORT = process.env.PORT || 3000;
 
+console.log("🔍 Значення PORT:", PORT);
+
 // Підключення до MongoDB
 mongoose
   .connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
   })
-  .then(() => console.log("MongoDB connected"))
-  .catch(err => console.error("MongoDB connection error:", err));
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch(err => console.error("❌ MongoDB connection error:", err));
 
 // Схеми MongoDB
 const DocumentSchema = new mongoose.Schema({
@@ -57,12 +61,14 @@ const Asset = mongoose.model('Asset', AssetSchema);
 // Роути
 app.post('/assets', upload.single('photo'), async (req, res) => {
   try {
+    console.log("📥 POST /assets", req.body);
     const { name, serial, nomenclature, unit, location } = req.body;
     const photo = req.file ? `/uploads/${req.file.filename}` : null;
     const asset = new Asset({ name, serial, nomenclature, unit, location, photo, documents: [] });
     await asset.save();
     res.status(201).json(asset);
   } catch (err) {
+    console.error("❌ Error creating asset:", err);
     res.status(500).json({ error: 'Failed to create asset', details: err.message });
   }
 });
@@ -71,6 +77,7 @@ app.post('/assets/:id/documents', upload.fields([
   { name: 'docFile' }, { name: 'scanFile' }
 ]), async (req, res) => {
   try {
+    console.log("📥 POST /assets/:id/documents", req.body);
     const asset = await Asset.findById(req.params.id);
     if (!asset) return res.status(404).json({ error: 'Asset not found' });
 
@@ -86,29 +93,34 @@ app.post('/assets/:id/documents', upload.fields([
     await asset.save();
     res.status(201).json(doc);
   } catch (err) {
+    console.error("❌ Error adding document:", err);
     res.status(500).json({ error: 'Failed to add document', details: err.message });
   }
 });
 
 app.get('/assets', async (req, res) => {
   try {
+    console.log("📥 GET /assets");
     const assets = await Asset.find();
     res.json(assets);
   } catch (err) {
+    console.error("❌ Error fetching assets:", err);
     res.status(500).json({ error: 'Failed to fetch assets' });
   }
 });
 
 app.get('/assets/:id', async (req, res) => {
   try {
+    console.log(`📥 GET /assets/${req.params.id}`);
     const asset = await Asset.findById(req.params.id);
     if (!asset) return res.status(404).json({ error: 'Asset not found' });
     res.json(asset);
   } catch (err) {
+    console.error("❌ Error fetching asset:", err);
     res.status(500).json({ error: 'Failed to fetch asset', details: err.message });
   }
 });
 
 app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
 
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server running on port ${PORT}`));
