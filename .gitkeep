@@ -1,0 +1,5 @@
+mkdir uploads              # створює папку
+touch uploads/.gitkeep     # створює порожній файл .gitkeep
+git add uploads/.gitkeep   # додає до репозиторію
+git commit -m "add uploads dir"
+git push                   # надсилає на GitHub
