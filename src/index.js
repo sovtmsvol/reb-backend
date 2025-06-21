@@ -77,6 +77,16 @@ app.post('/assets', upload.none(), async (req, res) => {
   }
 });
 
+app.patch('/assets/:id', async (req, res) => {
+  try {
+    const asset = await Asset.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!asset) return res.status(404).json({ error: 'Asset not found' });
+    res.json(asset);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update asset', details: err.message });
+  }
+});
+
 app.post('/assets/:id/documents', upload.fields([
   { name: 'docFile' }, { name: 'scanFile' }
 ]), async (req, res) => {
@@ -126,5 +136,7 @@ app.get('/assets/:id', async (req, res) => {
 });
 
 app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
+
+app.get('/', (req, res) => res.send('👋 Asset API running'));
 
 app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server running on port ${PORT}`));
