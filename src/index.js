@@ -59,16 +59,20 @@ const AssetSchema = new mongoose.Schema({
 const Asset = mongoose.model('Asset', AssetSchema);
 
 // Роути
-app.post('/assets', upload.single('photo'), async (req, res) => {
+app.post('/assets', upload.none(), async (req, res) => {
   try {
     console.log("📥 POST /assets", req.body);
     const { name, serial, nomenclature, unit, location } = req.body;
-    const photo = req.file ? `/uploads/${req.file.filename}` : null;
-    const asset = new Asset({ name, serial, nomenclature, unit, location, photo, documents: [] });
+
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ error: 'Поле "name" є обов’язковим' });
+    }
+
+    const asset = new Asset({ name, serial, nomenclature, unit, location, photo: null, documents: [] });
     await asset.save();
     res.status(201).json(asset);
   } catch (err) {
-    console.error("❌ Error creating asset:", err);
+    console.error("❌ Error creating asset:", err.name, err.message, err.errors);
     res.status(500).json({ error: 'Failed to create asset', details: err.message });
   }
 });
