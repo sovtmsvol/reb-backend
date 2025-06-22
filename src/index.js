@@ -17,7 +17,6 @@ console.log("🔍 Починаємо запуск...");
 
 const app = express();
 
-// Дозвіл CORS для фронтенду на Render
 app.use(cors({
   origin: 'https://oblic.onrender.com'
 }));
@@ -29,7 +28,7 @@ const PORT = process.env.PORT || 3000;
 
 console.log("🔍 Значення PORT:", PORT);
 
-// Підключення до MongoDB
+// MongoDB
 mongoose
   .connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
@@ -38,7 +37,7 @@ mongoose
   .then(() => console.log("✅ MongoDB connected"))
   .catch(err => console.error("❌ MongoDB connection error:", err));
 
-// Схеми MongoDB
+// Схеми
 const DocumentSchema = new mongoose.Schema({
   number: String,
   date: String,
@@ -61,9 +60,7 @@ const Asset = mongoose.model('Asset', AssetSchema);
 // Роути
 app.post('/assets', upload.none(), async (req, res) => {
   try {
-    console.log("📥 POST /assets", req.body);
     const { name, serial, nomenclature, unit, location } = req.body;
-
     if (!name || name.trim() === '') {
       return res.status(400).json({ error: 'Поле "name" є обов’язковим' });
     }
@@ -77,12 +74,33 @@ app.post('/assets', upload.none(), async (req, res) => {
   }
 });
 
-app.patch('/assets/:id', async (req, res) => {
+app.patch('/assets/:id', upload.fields([
+  { name: 'photo' },
+  { name: /^docFile_\d+$/ },
+  { name: /^scanFile_\d+$/ }
+]), async (req, res) => {
   try {
-    const asset = await Asset.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const asset = await Asset.findById(req.params.id);
     if (!asset) return res.status(404).json({ error: 'Asset not found' });
+
+    if (req.body.location) asset.location = req.body.location;
+    if (req.files['photo']) asset.photo = `/uploads/${req.files['photo'][0].filename};
+
+    if (req.body.documents) {
+      const parsed = JSON.parse(req.body.documents);
+      const updatedDocs = parsed.map((doc, i) => ({
+        number: doc.number,
+        date: doc.date,
+        docFile: req.files[`docFile_${i}`]?.[0]?.filename ? `/uploads/${req.files[`docFile_${i}`][0].filename}` : null,
+        scanFile: req.files[`scanFile_${i}`]?.[0]?.filename ? `/uploads/${req.files[`scanFile_${i}`][0].filename}` : null
+      }));
+      asset.documents = updatedDocs;
+    }
+
+    await asset.save();
     res.json(asset);
   } catch (err) {
+    console.error("❌ Error patching asset:", err);
     res.status(500).json({ error: 'Failed to update asset', details: err.message });
   }
 });
@@ -91,7 +109,6 @@ app.post('/assets/:id/documents', upload.fields([
   { name: 'docFile' }, { name: 'scanFile' }
 ]), async (req, res) => {
   try {
-    console.log("📥 POST /assets/:id/documents", req.body);
     const asset = await Asset.findById(req.params.id);
     if (!asset) return res.status(404).json({ error: 'Asset not found' });
 
@@ -114,29 +131,23 @@ app.post('/assets/:id/documents', upload.fields([
 
 app.get('/assets', async (req, res) => {
   try {
-    console.log("📥 GET /assets");
     const assets = await Asset.find();
     res.json(assets);
   } catch (err) {
-    console.error("❌ Error fetching assets:", err);
     res.status(500).json({ error: 'Failed to fetch assets' });
   }
 });
 
 app.get('/assets/:id', async (req, res) => {
   try {
-    console.log(`📥 GET /assets/${req.params.id}`);
     const asset = await Asset.findById(req.params.id);
     if (!asset) return res.status(404).json({ error: 'Asset not found' });
     res.json(asset);
   } catch (err) {
-    console.error("❌ Error fetching asset:", err);
     res.status(500).json({ error: 'Failed to fetch asset', details: err.message });
   }
 });
 
 app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
-
 app.get('/', (req, res) => res.send('👋 Asset API running'));
-
 app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server running on port ${PORT}`));
