@@ -17,6 +17,7 @@ console.log("🔍 Починаємо запуск...");
 
 const app = express();
 
+// Дозвіл CORS для фронтенду на Render
 app.use(cors({
   origin: 'https://oblic.onrender.com'
 }));
@@ -28,7 +29,7 @@ const PORT = process.env.PORT || 3000;
 
 console.log("🔍 Значення PORT:", PORT);
 
-// MongoDB
+// Підключення до MongoDB
 mongoose
   .connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
@@ -37,7 +38,7 @@ mongoose
   .then(() => console.log("✅ MongoDB connected"))
   .catch(err => console.error("❌ MongoDB connection error:", err));
 
-// Схеми
+// Схеми MongoDB
 const DocumentSchema = new mongoose.Schema({
   number: String,
   date: String,
@@ -74,26 +75,31 @@ app.post('/assets', upload.none(), async (req, res) => {
   }
 });
 
-app.patch('/assets/:id', upload.fields([
-  { name: 'photo' },
-  { name: /^docFile_\d+$/ },
-  { name: /^scanFile_\d+$/ }
-]), async (req, res) => {
+app.patch('/assets/:id', upload.any(), async (req, res) => {
   try {
     const asset = await Asset.findById(req.params.id);
     if (!asset) return res.status(404).json({ error: 'Asset not found' });
 
+    // Текстові поля
     if (req.body.location) asset.location = req.body.location;
-    if (req.files['photo']) asset.photo = `/uploads/${req.files['photo'][0].filename};
 
+    // Фото
+    const photoFile = req.files.find(f => f.fieldname === 'photo');
+    if (photoFile) asset.photo = `/uploads/${photoFile.filename}`;
+
+    // Документи
     if (req.body.documents) {
       const parsed = JSON.parse(req.body.documents);
-      const updatedDocs = parsed.map((doc, i) => ({
-        number: doc.number,
-        date: doc.date,
-        docFile: req.files[`docFile_${i}`]?.[0]?.filename ? `/uploads/${req.files[`docFile_${i}`][0].filename}` : null,
-        scanFile: req.files[`scanFile_${i}`]?.[0]?.filename ? `/uploads/${req.files[`scanFile_${i}`][0].filename}` : null
-      }));
+      const updatedDocs = parsed.map((doc, i) => {
+        const docFile = req.files.find(f => f.fieldname === `docFile_${i}`);
+        const scanFile = req.files.find(f => f.fieldname === `scanFile_${i}`);
+        return {
+          number: doc.number,
+          date: doc.date,
+          docFile: docFile ? `/uploads/${docFile.filename}` : null,
+          scanFile: scanFile ? `/uploads/${scanFile.filename}` : null
+        };
+      });
       asset.documents = updatedDocs;
     }
 
@@ -149,5 +155,7 @@ app.get('/assets/:id', async (req, res) => {
 });
 
 app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
+
 app.get('/', (req, res) => res.send('👋 Asset API running'));
+
 app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server running on port ${PORT}`));
